@@ -1,4 +1,4 @@
-﻿// TTSEngine.cpp: CTTSEngine 的实现
+// TTSEngine.cpp: CTTSEngine 的实现
 
 #include "pch.h"
 #include "TTSEngine.h"
@@ -1001,7 +1001,9 @@ bool CTTSEngine::BuildSSML(const SPVTEXTFRAG* pTextFragList)
                 // but no further warranty is given, as SAPI does no further check.
                 // So the actual XML tag might be malformed.
 
+                std::wstring normalizedTag;
                 std::wstring_view tag(pTextFrag->pTextStart, pTextFrag->ulTextLen);
+                std::wstring_view outputTag = tag;
                 // trim spaces
                 tag.remove_prefix(tag.find('<'));
                 tag.remove_suffix(tag.size() - tag.rfind(L'>') - 1);
@@ -1019,11 +1021,22 @@ bool CTTSEngine::BuildSSML(const SPVTEXTFRAG* pTextFragList)
                         LogDebug("Speak: Ignoring client <speak> wrapper for cloud voice");
                         break;
                     }
+                    // SAPI can discard namespace prefixes and declarations from
+                    // unknown tags. Restore Azure's express-as namespace on both
+                    // opening and closing fragments before storing or matching them.
+                    if (EqualsIgnoreCase(tagName, L"express-as"))
+                    {
+                        normalizedTag.assign(tag);
+                        normalizedTag.insert(IsXMLClosingTag(tag) ? 2 : 1, L"mstts:");
+                        tag = normalizedTag;
+                        outputTag = tag;
+                        LogDebug("Speak: Restored mstts namespace on express-as tag");
+                    }
                 }
 
                 if (IsXMLSelfClosingTag(tag))
                 {
-                    m_ssml.append(pTextFrag->pTextStart, pTextFrag->ulTextLen);
+                    m_ssml.append(outputTag);
                 }
                 else if (IsXMLClosingTag(tag))
                 {
@@ -1047,7 +1060,7 @@ bool CTTSEngine::BuildSSML(const SPVTEXTFRAG* pTextFragList)
                                 m_ssml.push_back(L'>');
                             }
                         }
-                        m_ssml.append(pTextFrag->pTextStart, pTextFrag->ulTextLen);
+                        m_ssml.append(outputTag);
                         customTags.erase(tagToClose.base() - 1, customTags.end());  // remove from tag list
                     }
                     else
@@ -1057,8 +1070,8 @@ bool CTTSEngine::BuildSSML(const SPVTEXTFRAG* pTextFragList)
                 }
                 else if (pTextFrag->ulTextLen >= 3) // opening tag
                 {
-                    m_ssml.append(pTextFrag->pTextStart, pTextFrag->ulTextLen);
-                    customTags.emplace_back(pTextFrag->pTextStart, pTextFrag->ulTextLen);  // add to tag list
+                    m_ssml.append(outputTag);
+                    customTags.emplace_back(outputTag);  // add to tag list
                 }
                 else
                 {
