@@ -1006,6 +1006,21 @@ bool CTTSEngine::BuildSSML(const SPVTEXTFRAG* pTextFragList)
                 tag.remove_prefix(tag.find('<'));
                 tag.remove_suffix(tag.size() - tag.rfind(L'>') - 1);
 
+                // SAPI clients may pass their outer <speak> wrapper as an
+                // unknown-tag fragment. Cloud voices already have an NVSA root,
+                // so preserving that wrapper would produce invalid nested SSML.
+                if (!m_onlineVoiceName.empty() && !isEdgeVoice)
+                {
+                    const auto tagName = IsXMLClosingTag(tag)
+                        ? GetXMLClosingTagName(tag)
+                        : GetXMLTagName(tag);
+                    if (EqualsIgnoreCase(tagName, L"speak"))
+                    {
+                        LogDebug("Speak: Ignoring client <speak> wrapper for cloud voice");
+                        break;
+                    }
+                }
+
                 if (IsXMLSelfClosingTag(tag))
                 {
                     m_ssml.append(pTextFrag->pTextStart, pTextFrag->ulTextLen);
