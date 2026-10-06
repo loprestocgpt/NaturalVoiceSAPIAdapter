@@ -764,7 +764,7 @@ static bool NeedAddingSpace(std::wstring_view ssmlBefore, std::wstring_view strA
     return true;
 }
 
-static std::wstring_view GetXMLTagName(const std::wstring& tag)
+static std::wstring_view GetXMLTagName(std::wstring_view tag)
 {
     // from the first non-space character after the first '<',
     // to the first space character after that
